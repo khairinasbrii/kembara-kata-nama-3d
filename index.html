@@ -112,12 +112,12 @@
 
 <div id="hud">
   <div class="hud-chip" id="hud-score">&#x2B50; <span id="hud-stars">0</span></div>
-  <div class="hud-chip" id="hud-coins">&#xD83E;&#xDE99; <span id="hud-coins-num">0</span></div>
-  <div class="hud-chip" id="hud-mission">&#xD83C;&#xDFAF; Selamat datang!</div>
+  <div class="hud-chip" id="hud-coins">&#x1FA99; <span id="hud-coins-num">0</span></div>
+  <div class="hud-chip" id="hud-mission">&#x1F3AF; Selamat datang!</div>
   <div class="hud-chip" id="hud-timer">&#x23F1; 00:00</div>
 </div>
 
-<div id="crosshair">&#xD83C;&#xDFAF;</div>
+<div id="crosshair">&#x1F3AF;</div>
 <div id="pick-label"></div>
 <div id="toast"></div>
 <div id="hint">Klik pada objek untuk mengutip! (WASD untuk bergerak, jangan klik &amp; seret)</div>
@@ -127,10 +127,10 @@
 
 <!-- START SCREEN -->
 <div class="overlay" id="screen-start">
-  <h1>&#xD83C;&#xDF92; Kembara Kata Nama 3D</h1>
+  <h1>&#x1F392; Kembara Kata Nama 3D</h1>
   <h2>Permainan Bahasa Melayu Tahun 1</h2>
   <p>Jelajah sekolah, cari objek, dan kutip <b>kata nama</b>!<br>
-     Jawab dengan betul untuk mendapat &#x2B50; bintang dan &#xD83E;&#xDE99; syiling.</p>
+     Jawab dengan betul untuk mendapat &#x2B50; bintang dan &#x1FA99; syiling.</p>
   <input id="player-name" placeholder="Tulis nama anda" maxlength="14" autocomplete="off">
   <button class="big-btn" id="btn-start">&#x25B6; MULA BERMAIN</button>
   <div id="board-start-wrap">
@@ -140,9 +140,9 @@
 
 <!-- END SCREEN -->
 <div class="overlay hidden" id="screen-end">
-  <h1 id="end-title">&#xD83C;&#xDF89; Tahniah!</h1>
+  <h1 id="end-title">&#x1F389; Tahniah!</h1>
   <p id="end-summary"></p>
-  <button class="big-btn" id="btn-again">&#xD83D;&#xDD01; Main Lagi</button>
+  <button class="big-btn" id="btn-again">&#x1F501; Main Lagi</button>
   <div id="board"><table id="board-table-end"></table></div>
 </div>
 
@@ -154,7 +154,7 @@
 import * as THREE from 'three';
 
 /* =========================================================
-   KEMBARA KATA NAMA 3D \\u{2014} v1.0
+   KEMBARA KATA NAMA 3D \u{2014} v1.0
    Pendidikan BM Tahun 1 (KSSR). Single-file, GitHub Pages ready.
    ========================================================= */
 
@@ -586,7 +586,7 @@ canvas.addEventListener('click', () => {
 });
 document.addEventListener('pointerlockchange', () => {
   document.getElementById('hint').textContent = document.pointerLockElement === canvas
-    ? 'Klik untuk kutip objek \\u{2022} WASD bergerak \\u{2022} ESC untuk mouse'
+    ? 'Klik untuk kutip objek \u{2022} WASD bergerak \u{2022} ESC untuk mouse'
     : 'Klik skrin untuk mula bergerak (mouse look)';
 });
 document.addEventListener('mousemove', e => {
@@ -670,15 +670,15 @@ function pickCollectible(obj) {
       state.stars += 1;
       state.score += 20;
       if (o.special) { state.coins += 10; }
-      toast(`\\u{2705} Betul! ${o.n.toUpperCase()} adalah kata nama! +20`, 'betul');
+      toast(`\u{2705} Betul! ${o.n.toUpperCase()} adalah kata nama! +20`, 'betul');
       speech.speak(`Betul! ${o.n} adalah kata nama. Tahniah!`);
     } else {
-      toast(`\\u{2139}\\u{fe0f} ${o.n} \\u{2014} sudah dikutip`, 'info');
+      toast(`\u{2139}\u{fe0f} ${o.n} \u{2014} sudah dikutip`, 'info');
     }
   } else {
     state.wrong += 1;
     state.score = Math.max(0, state.score - 5);
-    toast(`\\u{274c} ${o.n} bukan kata nama. Cuba lagi!`, 'salah');
+    toast(`\u{274c} ${o.n} bukan kata nama. Cuba lagi!`, 'salah');
     speech.speak(`${o.n} bukan kata nama. Cuba lagi!`);
   }
   updateHUD();
@@ -690,7 +690,7 @@ function collectCoin(coin) {
   coin.userData.isCoin = false;
   state.coins += 10;
   state.score += 5;
-  toast('\\u{d83e}\\u{de99} +10 Syiling!', 'info');
+  toast('\u{1fa99} +10 Syiling!', 'info');
   speech.speak('Syiling!');
   updateHUD();
 }
@@ -705,7 +705,7 @@ function checkMissionComplete() {
     if (state.missionIndex + 1 >= TOTAL_MISSIONS) {
       endGame(true);
     } else {
-      toast('\\u{d83c}\\u{df89} Misi selesai! Misi baru...', 'info');
+      toast('\u{1f389} Misi selesai! Misi baru...', 'info');
       speech.speak('Misi selesai! Misi baru dimulakan.');
       setTimeout(() => startMission(state.missionIndex + 1), 1800);
     }
@@ -718,7 +718,7 @@ function startMission(i) {
   state.collectedThisMission.clear();
   const m = MISSIONS[i];
   const zone = ZONES.find(z => z.key === m.zone) || '';
-  document.getElementById('hud-mission').textContent = `\\u{d83c}\\u{dfaf} ${m.soalan}`;
+  document.getElementById('hud-mission').textContent = `\u{1f3af} ${m.soalan}`;
   toast(`Misi ${i+1}/${TOTAL_MISSIONS}: ${m.soalan}`, 'info');
   speech.speak(`Misi ${i+1}. ${m.soalan}`);
   // Hidupkan semula objek target misi yang mungkin telah dikutip dalam misi lepas
@@ -738,7 +738,7 @@ function updateTimer() {
   state.elapsed = Math.floor((Date.now() - state.startTime) / 1000);
   const mm = String(Math.floor(state.elapsed/60)).padStart(2, '0');
   const ss = String(state.elapsed % 60).padStart(2, '0');
-  document.getElementById('hud-timer').textContent = `\\u{23f1} ${mm}:${ss}`;
+  document.getElementById('hud-timer').textContent = `\u{23f1} ${mm}:${ss}`;
 }
 setInterval(updateTimer, 1000);
 
@@ -774,7 +774,7 @@ function saveBoard() {
 function renderBoard(tableId) {
   const board = loadBoard();
   const table = document.getElementById(tableId);
-  table.innerHTML = '<tr><th colspan="3">\\u{d83c}\\u{dfc6} Top 10</th></tr>' +
+  table.innerHTML = '<tr><th colspan="3">\u{1f3c6} Top 10</th></tr>' +
     (board.length === 0
       ? '<tr><td colspan="3">Tiada rekod lagi. Jadilah yang pertama!</td></tr>'
       : board.map((r, i) =>
@@ -785,9 +785,9 @@ renderBoard('board-table');
 // ---------------- BADGES ----------------
 function computeBadges() {
   const badges = [];
-  if (state.stars >= TOTAL_MISSIONS) badges.push('\\u{d83c}\\u{dfc5} Penjelajah Hebat');
-  if (state.score >= WIN_SCORE * 0.9) badges.push('\\u{d83c}\\u{dfc6} Juara Kata Nama');
-  if (state.collectedThisMission.has('rama-rama')) badges.push('\\u{d83e}\\u{dd8b} Raja Haiwan');
+  if (state.stars >= TOTAL_MISSIONS) badges.push('\u{1f3c5} Penjelajah Hebat');
+  if (state.score >= WIN_SCORE * 0.9) badges.push('\u{1f3c6} Juara Kata Nama');
+  if (state.collectedThisMission.has('rama-rama')) badges.push('\u{1f98b} Raja Haiwan');
   return badges;
 }
 
@@ -819,11 +819,11 @@ function endGame(completed) {
   saveBoard();
   const badges = computeBadges();
   const mm = Math.floor(state.elapsed/60), ss = state.elapsed % 60;
-  document.getElementById('end-title').textContent = completed ? '\\u{d83c}\\u{df89} Tahniah!' : '\\u{d83d}\\u{dd50} Masa Tamat!';
+  document.getElementById('end-title').textContent = completed ? '\u{1f389} Tahniah!' : '\u{1f550} Masa Tamat!';
   document.getElementById('end-summary').innerHTML =
     `Nama: <b>${state.playerName}</b><br>` +
-    `Skor: <b>${state.score}</b> \\u{2022} \\u{2b50} ${state.stars} \\u{2022} \\u{d83e}\\u{de99} ${state.coins}<br>` +
-    `Masa: ${mm}m ${ss}s \\u{2022} Jawapan salah: ${state.wrong}<br>` +
+    `Skor: <b>${state.score}</b> \u{2022} \u{2b50} ${state.stars} \u{2022} \u{1fa99} ${state.coins}<br>` +
+    `Masa: ${mm}m ${ss}s \u{2022} Jawapan salah: ${state.wrong}<br>` +
     (badges.length ? badges.join('<br>') : '');
   renderBoard('board-table-end');
   document.getElementById('screen-end').classList.remove('hidden');
@@ -890,7 +890,7 @@ function animate() {
       label.style.display = 'block';
       label.style.left = ((v.x*0.5+0.5) * innerWidth - 60) + 'px';
       label.style.top = ((-v.y*0.5+0.5) * innerHeight - 50) + 'px';
-      label.textContent = '\\u{d83d}\\u{dc49} ' + target.userData.n;
+      label.textContent = '\u{1f449} ' + target.userData.n;
     } else {
       label.style.display = 'none';
     }
