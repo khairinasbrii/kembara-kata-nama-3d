@@ -1,0 +1,910 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Kembara Kata Nama 3D</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { width: 100%; height: 100%; overflow: hidden; background: #87CEEB;
+    font-family: "Comic Sans MS", "Segoe UI", Arial, sans-serif; }
+
+  #game-canvas { display: block; width: 100%; height: 100%; }
+
+  /* ---------- HUD ---------- */
+  #hud {
+    position: fixed; top: 0; left: 0; width: 100%;
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 10px 14px; gap: 8px; pointer-events: none; z-index: 10;
+  }
+  .hud-chip {
+    background: rgba(255,255,255,0.92); border: 3px solid #ff9800;
+    border-radius: 18px; padding: 6px 14px; font-size: 22px; font-weight: bold;
+    color: #333; box-shadow: 0 3px 8px rgba(0,0,0,0.25);
+  }
+  #hud-mission { font-size: 20px; color: #d84315; max-width: 42vw; text-align: center; }
+  #hud-timer { color: #1565c0; }
+
+  /* ---------- Crosshair ---------- */
+  #crosshair {
+    position: fixed; left: 50%; top: 50%; transform: translate(-50%,-50%);
+    font-size: 34px; color: #fff; text-shadow: 0 0 6px #000; z-index: 5; pointer-events: none;
+  }
+
+  /* ---------- Feedback toast ---------- */
+  #toast {
+    position: fixed; left: 50%; top: 22%; transform: translateX(-50%);
+    background: #fff; border-radius: 20px; padding: 16px 28px; font-size: 28px; font-weight: bold;
+    box-shadow: 0 6px 20px rgba(0,0,0,0.35); z-index: 20; opacity: 0;
+    transition: opacity 0.3s; pointer-events: none; text-align: center;
+    max-width: 80vw;
+  }
+  #toast.show { opacity: 1; }
+  #toast.betul { border: 5px solid #4caf50; color: #2e7d32; }
+  #toast.salah { border: 5px solid #f44336; color: #c62828; }
+  #toast.info  { border: 5px solid #2196f3; color: #1565c0; }
+
+  /* ---------- Floating pick label ---------- */
+  #pick-label {
+    position: fixed; pointer-events: none; z-index: 15;
+    background: rgba(0,0,0,0.75); color: #ffe082; padding: 8px 16px;
+    border-radius: 14px; font-size: 22px; font-weight: bold; display: none;
+  }
+
+  /* ---------- Overlays (start / end) ---------- */
+  .overlay {
+    position: fixed; inset: 0; background: linear-gradient(160deg, #4fc3f7 0%, #b3e5fc 60%, #fff9c4 100%);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    z-index: 50; text-align: center; padding: 20px; gap: 14px;
+  }
+  .overlay.hidden { display: none; }
+  .overlay h1 { font-size: 44px; color: #e65100; text-shadow: 2px 2px 0 #fff; }
+  .overlay h2 { font-size: 30px; color: #1565c0; }
+  .overlay p  { font-size: 22px; color: #37474f; max-width: 620px; line-height: 1.5; }
+  .big-btn {
+    font-size: 28px; font-weight: bold; padding: 16px 44px; border: none;
+    border-radius: 30px; background: #ff9800; color: #fff; cursor: pointer;
+    box-shadow: 0 5px 0 #e65100; margin-top: 8px;
+  }
+  .big-btn:active { transform: translateY(3px); box-shadow: 0 2px 0 #e65100; }
+  #player-name {
+    font-size: 26px; padding: 12px 18px; border: 4px solid #ff9800;
+    border-radius: 16px; width: 300px; text-align: center; font-family: inherit;
+  }
+
+  /* ---------- Leaderboard ---------- */
+  #board { background: #fff; border-radius: 18px; padding: 14px 26px; min-width: 300px;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.2); }
+  #board table { font-size: 22px; color: #37474f; border-collapse: collapse; width: 100%; }
+  #board td { padding: 4px 12px; }
+  #board .rank { color: #ff9800; font-weight: bold; }
+
+  /* ---------- Joystick (mobile) ---------- */
+  #joystick {
+    position: fixed; left: 24px; bottom: 24px; width: 130px; height: 130px;
+    border-radius: 50%; background: rgba(255,255,255,0.35);
+    border: 3px solid rgba(255,255,255,0.7); z-index: 12; display: none;
+    touch-action: none;
+  }
+  #joy-knob {
+    position: absolute; left: 50%; top: 50%; width: 56px; height: 56px;
+    border-radius: 50%; background: #ff9800; transform: translate(-50%,-50%);
+    box-shadow: 0 3px 8px rgba(0,0,0,0.3);
+  }
+  body.touch #joystick { display: block; }
+  #btn-kutip {
+    position: fixed; right: 28px; bottom: 40px; z-index: 12; display: none;
+    font-size: 26px; font-weight: bold; padding: 20px 26px; border-radius: 50%;
+    background: #4caf50; color: #fff; border: none; box-shadow: 0 5px 12px rgba(0,0,0,0.3);
+  }
+  body.touch #btn-kutip { display: block; }
+
+  /* ---------- Intro hint ---------- */
+  #hint {
+    position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%);
+    background: rgba(0,0,0,0.6); color: #fff; padding: 10px 20px; border-radius: 16px;
+    font-size: 18px; z-index: 10; pointer-events: none; text-align: center;
+  }
+</style>
+</head>
+<body>
+<canvas id="game-canvas"></canvas>
+
+<div id="hud">
+  <div class="hud-chip" id="hud-score">â­ <span id="hud-stars">0</span></div>
+  <div class="hud-chip" id="hud-coins">ðŸª™ <span id="hud-coins-num">0</span></div>
+  <div class="hud-chip" id="hud-mission">ðŸŽ¯ Selamat datang!</div>
+  <div class="hud-chip" id="hud-timer">â± 00:00</div>
+</div>
+
+<div id="crosshair">ðŸŽ¯</div>
+<div id="pick-label"></div>
+<div id="toast"></div>
+<div id="hint">Klik pada objek untuk mengutip! (WASD untuk bergerak, jangan klik &amp; seret)</div>
+
+<div id="joystick"><div id="joy-knob"></div></div>
+<button id="btn-kutip">âœ‹ Kutip</button>
+
+<!-- START SCREEN -->
+<div class="overlay" id="screen-start">
+  <h1>ðŸŽ’ Kembara Kata Nama 3D</h1>
+  <h2>Permainan Bahasa Melayu Tahun 1</h2>
+  <p>Jelajah sekolah, cari objek, dan kutip <b>kata nama</b>!<br>
+     Jawab dengan betul untuk mendapat â­ bintang dan ðŸª™ syiling.</p>
+  <input id="player-name" placeholder="Tulis nama anda" maxlength="14" autocomplete="off">
+  <button class="big-btn" id="btn-start">â–¶ MULA BERMAIN</button>
+  <div id="board-start-wrap">
+    <div id="board"><table id="board-table"></table></div>
+  </div>
+</div>
+
+<!-- END SCREEN -->
+<div class="overlay hidden" id="screen-end">
+  <h1 id="end-title">ðŸŽ‰ Tahniah!</h1>
+  <p id="end-summary"></p>
+  <button class="big-btn" id="btn-again">ðŸ” Main Lagi</button>
+  <div id="board"><table id="board-table-end"></table></div>
+</div>
+
+<script type="importmap">
+{ "imports": { "three": "https://unpkg.com/three@0.160.0/build/three.module.js" } }
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+
+/* =========================================================
+   KEMBARA KATA NAMA 3D â€” v1.0
+   Pendidikan BM Tahun 1 (KSSR). Single-file, GitHub Pages ready.
+   ========================================================= */
+
+// ---------------- DATA: ZON + KATA NAMA ----------------
+// Setiap objek: nama, jenis (kata nama / bukan), zon, posisi relatif zon, warna, bentuk
+const ZONES = [
+  { key:'A', nama:'Pintu Masuk',  center:[0,0,55],    color:0xffcc80 },
+  { key:'B', nama:'Kelas',        center:[-55,0,0],   color:0xa5d6a7 },
+  { key:'C', nama:'Kantin',       center:[55,0,0],    color:0xffab91 },
+  { key:'D', nama:'Taman',        center:[0,0,-55],   color:0x80cbc4 },
+  { key:'E', nama:'Padang',       center:[0,0,0],     color:0xc5e1a5 },
+];
+
+// bentuk: box|sphere|cone|cylinder ; extra flags untuk object khas
+const OBJECTS = [
+  // Zon A - Pintu Masuk
+  { n:'murid',    noun:true,  shape:'capsule', c:0x1e88e5, zone:'A', pos:[-8,0,4], special:false },
+  { n:'guru',     noun:true,  shape:'capsule', c:0xd81b60, zone:'A', pos:[8,0,4],  special:false },
+  { n:'bas',      noun:true,  shape:'bus',     c:0xfbc02d, zone:'A', pos:[0,0,14], special:true },
+  { n:'merah',    noun:false, shape:'sphere',  c:0xe53935, zone:'A', pos:[-14,0,10] },
+  { n:'besar',    noun:false, shape:'sphere',  c:0x8e24aa, zone:'A', pos:[14,0,10] },
+
+  // Zon B - Kelas
+  { n:'buku',     noun:true,  shape:'box', c:0x3949ab, zone:'B', pos:[-50,0,6],  special:false },
+  { n:'meja',     noun:true,  shape:'table', c:0x795548, zone:'B', pos:[-62,0,0], special:false },
+  { n:'kerusi',   noun:true,  shape:'chair', c:0x5d4037, zone:'B', pos:[-62,0,8] },
+  { n:'pensel',   noun:true,  shape:'pencil', c:0xfdd835, zone:'B', pos:[-50,0,-6], special:true },
+  { n:'pemadam',  noun:true,  shape:'box', c:0xe53935, zone:'B', pos:[-55,0,-10] },
+  { n:'cantik',   noun:false, shape:'sphere', c:0xec407a, zone:'B', pos:[-48,0,12] },
+
+  // Zon C - Kantin
+  { n:'nasi',     noun:true,  shape:'dome', c:0xfff8e1, zone:'C', pos:[50,0,6],  special:false },
+  { n:'sudu',     noun:true,  shape:'spoon', c:0xb0bec5, zone:'C', pos:[62,0,0] },
+  { n:'gelas',    noun:true,  shape:'cylinder', c:0x4dd0e1, zone:'C', pos:[62,0,8] },
+  { n:'pinggan',  noun:true,  shape:'plate', c:0xffffff, zone:'C', pos:[50,0,-6], special:true },
+  { n:'sedap',    noun:false, shape:'sphere', c:0xff7043, zone:'C', pos:[55,0,12] },
+
+  // Zon D - Taman
+  { n:'pokok',    noun:true,  shape:'tree', c:0x2e7d32, zone:'D', pos:[-8,0,-50] },
+  { n:'bunga',    noun:true,  shape:'flower', c:0xf06292, zone:'D', pos:[8,0,-50], special:false },
+  { n:'rumput',   noun:true,  shape:'grass', c:0x7cb342, zone:'D', pos:[0,0,-62] },
+  { n:'rama-rama',noun:true,  shape:'butterfly', c:0x5c6bc0, zone:'D', pos:[14,2,-58], special:true },
+  { n:'lari',     noun:false, shape:'sphere', c:0x00acc1, zone:'D', pos:[-14,0,-58] },
+
+  // Zon E - Padang
+  { n:'bola',     noun:true,  shape:'sphere', c:0xffffff, zone:'E', pos:[6,0.6,6], special:false },
+  { n:'murid',    noun:true,  shape:'capsule', c:0x43a047, zone:'E', pos:[-10,0,-8] },
+  { n:'tiang gol',noun:true,  shape:'goal', c:0xeeeeee, zone:'E', pos:[0,0,-14], special:true },
+  { n:'laju',     noun:false, shape:'sphere', c:0x6d4c41, zone:'E', pos:[12,0,10] },
+  { n:'main',     noun:false, shape:'sphere', c:0x26a69a, zone:'E', pos:[-14,0,12] },
+];
+
+// Misi: setiap misi minta kategori tertentu
+const MISSIONS = [
+  { soalan:'Cari kata nama haiwan.',  targets:['rama-rama'], speak:'Cari kata nama haiwan.' },
+  { soalan:'Cari kata nama di kelas.', targets:['buku','meja','kerusi','pensel','pemadam'], speak:'Cari kata nama di kelas.' },
+  { soalan:'Cari kata nama makanan atau alat makan.', targets:['nasi','sudu','gelas','pinggan'], speak:'Cari kata nama makanan atau alat makan.' },
+  { soalan:'Cari kata nama di taman.', targets:['pokok','bunga','rumput'], speak:'Cari kata nama di taman.' },
+  { soalan:'Cari kata nama di padang.', targets:['bola','tiang gol'], speak:'Cari kata nama di padang.' },
+  { soalan:'Cari kata nama di pintu masuk.', targets:['murid','guru','bas'], speak:'Cari kata nama di pintu masuk.' },
+];
+const TOTAL_MISSIONS = MISSIONS.length;
+const WIN_SCORE = TOTAL_MISSIONS * 20; // 20 pts per correct answer
+
+// ---------------- STATE ----------------
+const state = {
+  playerName: '',
+  running: false,
+  missionIndex: -1,
+  stars: 0,        // jawapan betul
+  coins: 0,
+  score: 0,
+  wrong: 0,
+  collectedThisMission: new Set(),
+  startTime: 0,
+  elapsed: 0,
+};
+
+// ---------------- AUDIO (Speech Synthesis BM) ----------------
+const speech = {
+  enabled: true,
+  speak(text, rate = 0.95) {
+    if (!this.enabled || !('speechSynthesis' in window)) return;
+    try {
+      speechSynthesis.cancel();
+      const u = new SpeechSynthesisUtterance(text);
+      u.lang = 'ms-MY';
+      u.rate = rate;
+      u.pitch = 1.15; // mesra kanak-kanak
+      // Cuba pilih suara Melayu jika ada
+      const voices = speechSynthesis.getVoices();
+      const ms = voices.find(v => v.lang && v.lang.toLowerCase().startsWith('ms'));
+      if (ms) u.voice = ms;
+      speechSynthesis.speak(u);
+    } catch (e) { /* senyap */ }
+  }
+};
+
+// ---------------- THREE SETUP ----------------
+const canvas = document.getElementById('game-canvas');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+renderer.setSize(innerWidth, innerHeight);
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x87CEEB);
+scene.fog = new THREE.Fog(0x87CEEB, 80, 220);
+
+const camera = new THREE.PerspectiveCamera(75, innerWidth/innerHeight, 0.1, 300);
+
+// Lights
+scene.add(new THREE.HemisphereLight(0xffffff, 0x996633, 0.9));
+const sun = new THREE.DirectionalLight(0xfff2cc, 1.1);
+sun.position.set(40, 60, 30);
+sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048);
+sun.shadow.camera.left = -120; sun.shadow.camera.right = 120;
+sun.shadow.camera.top = 120; sun.shadow.camera.bottom = -120;
+scene.add(sun);
+
+// Ground (rumput besar)
+const ground = new THREE.Mesh(
+  new THREE.PlaneGeometry(260, 260),
+  new THREE.MeshLambertMaterial({ color: 0x66bb6a })
+);
+ground.rotation.x = -Math.PI/2;
+ground.receiveShadow = true;
+scene.add(ground);
+
+// Latar: langit + awan simple
+function makeCloud(x, y, z) {
+  const g = new THREE.Group();
+  const m = new THREE.MeshLambertMaterial({ color: 0xffffff });
+  for (const [sx, sy, sz, px] of [[8,4,6,0],[6,4,5,6],[6,3,5,-6],[5,3,4,0]]) {
+    const s = new THREE.Mesh(new THREE.SphereGeometry(sx, 8, 8), m);
+    s.scale.y = sy/sx; s.scale.z = sz/sx;
+    s.position.set(px, sy*0.2, 0);
+    g.add(s);
+  }
+  g.position.set(x, y, z);
+  scene.add(g);
+  return g;
+}
+[[60,40,-80],[-70,35,60],[90,45,80],[-90,40,-90],[0,50,120]].forEach(p => makeCloud(...p));
+
+// Pagar keliling sekolah
+const fenceMat = new THREE.MeshLambertMaterial({ color: 0x8d6e63 });
+for (let i = -130; i <= 130; i += 6) {
+  for (const [fx, fz, rot] of [[i,-130,0],[i,130,0],[-130,i,Math.PI/2],[130,i,Math.PI/2]]) {
+    const post = new THREE.Mesh(new THREE.BoxGeometry(0.3, 2.2, 0.3), fenceMat);
+    post.position.set(fx, 1.1, fz);
+    scene.add(post);
+  }
+}
+
+// ---------------- ZON: lantai berwarna + papan tanda ----------------
+function zoneFloor(z) {
+  const m = new THREE.Mesh(
+    new THREE.PlaneGeometry(46, 46),
+    new THREE.MeshLambertMaterial({ color: z.color, transparent: true, opacity: 0.55 })
+  );
+  m.rotation.x = -Math.PI/2;
+  m.position.set(z.center[0], 0.02, z.center[2]);
+  scene.add(m);
+}
+ZONES.forEach(zoneFloor);
+
+function makeSign(text, x, z, color) {
+  const group = new THREE.Group();
+  const post = new THREE.Mesh(new THREE.CylinderGeometry(0.15,0.15,3), fenceMat);
+  post.position.y = 1.5; group.add(post);
+  const canvasTex = document.createElement('canvas');
+  canvasTex.width = 512; canvasTex.height = 256;
+  const ctx = canvasTex.getContext('2d');
+  ctx.fillStyle = color; ctx.fillRect(0,0,512,256);
+  ctx.fillStyle = '#fff'; ctx.font = 'bold 64px Arial';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText('ZON ' + text[0], 256, 80);
+  ctx.font = 'bold 48px Arial';
+  ctx.fillText(text.slice(2), 256, 170);
+  const tex = new THREE.CanvasTexture(canvasTex);
+  const board = new THREE.Mesh(
+    new THREE.BoxGeometry(4, 2, 0.2),
+    new THREE.MeshLambertMaterial({ map: tex })
+  );
+  board.position.y = 3.4; group.add(board);
+  group.position.set(x, 0, z);
+  scene.add(group);
+}
+makeSign('A-Pintu Masuk', 0, 40, '#ef6c00');
+makeSign('B-Kelas', -42, 0, '#2e7d32');
+makeSign('C-Kantin', 42, 0, '#bf360c');
+makeSign('D-Taman', 0, -40, '#00695c');
+makeSign('E-Padang', 0, 12, '#33691e');
+
+// ---------------- BANGUNAN SEKOLAH (Zon B) ----------------
+const school = new THREE.Group();
+const wallMat = new THREE.MeshLambertMaterial({ color: 0xfff3e0 });
+const roofMat = new THREE.MeshLambertMaterial({ color: 0xd84315 });
+const main = new THREE.Mesh(new THREE.BoxGeometry(30, 8, 14), wallMat);
+main.position.y = 4; main.castShadow = true; school.add(main);
+const roof = new THREE.Mesh(new THREE.ConeGeometry(22, 5, 4), roofMat);
+roof.rotation.y = Math.PI/4; roof.position.y = 10.5; school.add(roof);
+// pintu & tingkap
+const door = new THREE.Mesh(new THREE.BoxGeometry(3, 4.5, 0.3), new THREE.MeshLambertMaterial({ color: 0x6d4c41 }));
+door.position.set(0, 2.25, 7.1); school.add(door);
+for (let i = -2; i <= 2; i++) {
+  const win = new THREE.Mesh(new THREE.BoxGeometry(3, 2.4, 0.2), new THREE.MeshLambertMaterial({ color: 0x4fc3f7 }));
+  win.position.set(i*5.6, 4.5, 7.1);
+  if (i === 0) continue;
+  school.add(win);
+}
+school.position.set(-55, 0, -14);
+scene.add(school);
+
+// ---------------- KANTIN (Zon C) ----------------
+const kantin = new THREE.Group();
+const kbody = new THREE.Mesh(new THREE.BoxGeometry(20, 6, 12), new THREE.MeshLambertMaterial({ color: 0xffccbc }));
+kbody.position.y = 3; kbody.castShadow = true; kantin.add(kbody);
+const kroof = new THREE.Mesh(new THREE.ConeGeometry(15, 4, 4), roofMat);
+kroof.rotation.y = Math.PI/4; kroof.position.y = 8; kantin.add(kroof);
+kantin.position.set(58, 0, -14);
+scene.add(kantin);
+
+// ---------------- OBJECT FACTORY ----------------
+const mat = c => new THREE.MeshLambertMaterial({ color: c });
+function buildObject(o) {
+  const g = new THREE.Group();
+  const c = o.c;
+  switch (o.shape) {
+    case 'sphere': {
+      const m = new THREE.Mesh(new THREE.SphereGeometry(0.8, 16, 16), mat(c));
+      m.position.y = 0.8; g.add(m); break;
+    }
+    case 'box': {
+      const m = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.9, 0.3), mat(c));
+      m.position.y = 0.7; m.rotation.y = 0.3; g.add(m); break;
+    }
+    case 'capsule': { // murid/guru (orang kecil)
+      const body = new THREE.Mesh(new THREE.CapsuleGeometry(0.4, 0.9, 4, 8), mat(c));
+      body.position.y = 0.95; g.add(body);
+      const head = new THREE.Mesh(new THREE.SphereGeometry(0.32, 12, 12), mat(0xffcc99));
+      head.position.y = 1.9; g.add(head);
+      break;
+    }
+    case 'bus': {
+      const body = new THREE.Mesh(new THREE.BoxGeometry(6, 2.4, 2.2), mat(c));
+      body.position.y = 1.6; g.add(body);
+      const roof = new THREE.Mesh(new THREE.BoxGeometry(6, 0.4, 2.4), mat(0xffffff));
+      roof.position.y = 2.9; g.add(roof);
+      for (const wx of [-2, -0.7, 0.7, 2]) {
+        const w = new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.45, 0.3, 12), mat(0x212121));
+        w.rotation.x = Math.PI/2; w.position.set(wx, 0.45, 1.2); g.add(w);
+        const w2 = w.clone(); w2.position.z = -1.2; g.add(w2);
+      }
+      break;
+    }
+    case 'table': {
+      const top = new THREE.Mesh(new THREE.BoxGeometry(2, 0.2, 1.4), mat(c));
+      top.position.y = 1; g.add(top);
+      for (const [lx, lz] of [[-0.8,-0.5],[0.8,-0.5],[-0.8,0.5],[0.8,0.5]]) {
+        const leg = new THREE.Mesh(new THREE.BoxGeometry(0.15, 1, 0.15), mat(0x4e342e));
+        leg.position.set(lx, 0.5, lz); g.add(leg);
+      }
+      break;
+    }
+    case 'chair': {
+      const seat = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.15, 0.9), mat(c));
+      seat.position.y = 0.6; g.add(seat);
+      const back = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.9, 0.12), mat(c));
+      back.position.set(0, 1.05, -0.4); g.add(back);
+      for (const [lx, lz] of [[-0.35,-0.35],[0.35,-0.35],[-0.35,0.35],[0.35,0.35]]) {
+        const leg = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.6, 0.12), mat(0x3e2723));
+        leg.position.set(lx, 0.3, lz); g.add(leg);
+      }
+      break;
+    }
+    case 'pencil': {
+      const body = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 1.6, 10), mat(c));
+      body.rotation.z = Math.PI/2.2; body.position.y = 0.5; g.add(body);
+      const tip = new THREE.Mesh(new THREE.ConeGeometry(0.12, 0.35, 10), mat(0x4e342e));
+      tip.rotation.z = -Math.PI/2.2; tip.position.set(0.75, 0.9, 0); g.add(tip);
+      break;
+    }
+    case 'dome': { // nasi (periuk)
+      const pot = new THREE.Mesh(new THREE.CylinderGeometry(1, 0.85, 0.8, 16), mat(0x9e9e9e));
+      pot.position.y = 0.4; g.add(pot);
+      const dome = new THREE.Mesh(new THREE.SphereGeometry(0.95, 16, 8, 0, Math.PI*2, 0, Math.PI/2), mat(c));
+      dome.position.y = 0.8; g.add(dome);
+      break;
+    }
+    case 'spoon': {
+      const handle = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 1.6, 8), mat(c));
+      handle.position.y = 0.9; g.add(handle);
+      const bowl = new THREE.Mesh(new THREE.SphereGeometry(0.35, 12, 12), mat(c));
+      bowl.scale.y = 0.5; bowl.position.y = 1.8; g.add(bowl);
+      break;
+    }
+    case 'plate': {
+      const p = new THREE.Mesh(new THREE.CylinderGeometry(1.1, 0.9, 0.15, 20), mat(c));
+      p.position.y = 0.1; g.add(p);
+      break;
+    }
+    case 'tree': {
+      const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.45, 2.4, 10), mat(0x6d4c41));
+      trunk.position.y = 1.2; g.add(trunk);
+      const leaf = new THREE.Mesh(new THREE.SphereGeometry(1.6, 12, 12), mat(c));
+      leaf.position.y = 3.4; leaf.scale.y = 1.2; g.add(leaf);
+      break;
+    }
+    case 'flower': {
+      const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 1, 8), mat(0x4caf50));
+      stem.position.y = 0.5; g.add(stem);
+      const petals = new THREE.Mesh(new THREE.SphereGeometry(0.4, 12, 12), mat(c));
+      petals.position.y = 1.15; g.add(petals);
+      const core = new THREE.Mesh(new THREE.SphereGeometry(0.18, 10, 10), mat(0xffeb3b));
+      core.position.y = 1.25; g.add(core);
+      break;
+    }
+    case 'grass': {
+      const tuft = new THREE.Group();
+      for (let i = 0; i < 5; i++) {
+        const blade = new THREE.Mesh(new THREE.ConeGeometry(0.08, 0.8, 6), mat(c));
+        blade.position.set((Math.random()-0.5)*0.8, 0.4, (Math.random()-0.5)*0.8);
+        blade.rotation.z = (Math.random()-0.5)*0.5;
+        tuft.add(blade);
+      }
+      g.add(tuft); break;
+    }
+    case 'butterfly': {
+      const body = new THREE.Mesh(new THREE.CapsuleGeometry(0.1, 0.5, 4, 8), mat(0x37474f));
+      body.rotation.x = Math.PI/2; body.position.y = 1.2; g.add(body);
+      for (const s of [-1, 1]) {
+        const wing = new THREE.Mesh(new THREE.SphereGeometry(0.45, 10, 10), mat(c));
+        wing.scale.set(1, 0.15, 0.6);
+        wing.position.set(s*0.4, 1.25, 0);
+        g.add(wing);
+      }
+      break;
+    }
+    case 'goal': { // tiang gol
+      for (const px of [-2.5, 2.5]) {
+        const post = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 2.4, 8), mat(c));
+        post.position.set(px, 1.2, 0); g.add(post);
+      }
+      const bar = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 5, 8), mat(c));
+      bar.rotation.z = Math.PI/2; bar.position.y = 2.4; g.add(bar);
+      break;
+    }
+    default: {
+      const m = new THREE.Mesh(new THREE.SphereGeometry(0.8, 12, 12), mat(c));
+      m.position.y = 0.8; g.add(m);
+    }
+  }
+  g.traverse(m => { if (m.isMesh) m.castShadow = true; });
+  return g;
+}
+
+// ---------------- PLACEMENT ----------------
+const zoneMap = Object.fromEntries(ZONES.map(z => [z.key, z]));
+const collectibles = []; // { mesh, data, alive }
+const specials = [];     // syiling khas
+
+OBJECTS.forEach((o, idx) => {
+  const zone = zoneMap[o.zone];
+  const obj = buildObject(o);
+  const px = zone.center[0] + o.pos[0];
+  const pz = zone.center[2] + o.pos[2];
+  obj.position.set(px, 0, pz);
+  obj.userData = { ...o, baseY: 0, bobPhase: Math.random()*Math.PI*2, isCollectible: true };
+  scene.add(obj);
+  collectibles.push(obj);
+
+  if (o.special) { // syiling khas di sebelah objek khas
+    const coin = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.45, 0.45, 0.12, 18),
+      new THREE.MeshLambertMaterial({ color: 0xffd700, emissive: 0x553300 })
+    );
+    coin.rotation.x = Math.PI/2;
+    coin.position.set(px + 2, 1, pz + 1.5);
+    coin.userData = { isCoin: true, bobPhase: Math.random()*Math.PI*2 };
+    scene.add(coin);
+    specials.push(coin);
+  }
+});
+
+// Buang objek yang bertindih dengan bangunan (kasar): zon B school di (-55,-14), kantin (58,-14)
+collectibles.forEach(o => {
+  const p = o.position;
+  if (o.userData.zone === 'B' && Math.abs(p.x + 55) < 17 && p.z < -5) o.visible = false;
+  if (o.userData.zone === 'C' && Math.abs(p.x - 58) < 12 && p.z < -5) o.visible = false;
+});
+
+// ---------------- PLAYER ----------------
+const player = {
+  pos: new THREE.Vector3(0, 1.6, 70),
+  yaw: Math.PI,        // hadap ke arah sekolah ( pusat )
+  pitch: 0,
+  speed: 6.5,
+  keys: {},
+};
+camera.position.copy(player.pos);
+
+function applyCamera() {
+  camera.rotation.order = 'YXZ';
+  camera.rotation.y = player.yaw;
+  camera.rotation.x = player.pitch;
+  camera.position.set(player.pos.x, player.pos.y, player.pos.z);
+}
+applyCamera();
+
+// ---------------- INPUT: keyboard ----------------
+addEventListener('keydown', e => {
+  player.keys[e.code] = true;
+  if (e.code === 'Space' && state.running) tryPick();
+});
+addEventListener('keyup', e => { player.keys[e.code] = false; });
+
+// Pointer lock (desktop)
+canvas.addEventListener('click', () => {
+  if (!state.running) return;
+  if (document.pointerLockElement !== canvas) {
+    canvas.requestPointerLock();
+  } else {
+    tryPick();
+  }
+});
+document.addEventListener('pointerlockchange', () => {
+  document.getElementById('hint').textContent = document.pointerLockElement === canvas
+    ? 'Klik untuk kutip objek â€¢ WASD bergerak â€¢ ESC untuk mouse'
+    : 'Klik skrin untuk mula bergerak (mouse look)';
+});
+document.addEventListener('mousemove', e => {
+  if (document.pointerLockElement !== canvas) return;
+  player.yaw -= e.movementX * 0.0022;
+  player.pitch -= e.movementY * 0.0022;
+  player.pitch = Math.max(-1.2, Math.min(1.2, player.pitch));
+});
+
+// ---------------- INPUT: mobile joystick ----------------
+const isTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+if (isTouch) document.body.classList.add('touch');
+
+const joy = { active: false, dx: 0, dz: 0 };
+const joyEl = document.getElementById('joystick');
+const knob = document.getElementById('joy-knob');
+function joyUpdate(e) {
+  const r = joyEl.getBoundingClientRect();
+  const t = e.touches ? e.touches[0] : e;
+  let x = (t.clientX - (r.left + r.width/2)) / (r.width/2);
+  let y = (t.clientY - (r.top + r.height/2)) / (r.height/2);
+  const len = Math.hypot(x, y);
+  if (len > 1) { x /= len; y /= len; }
+  joy.dx = x; joy.dz = y;
+  knob.style.transform = `translate(calc(-50% + ${x*38}px), calc(-50% + ${y*38}px))`;
+}
+joyEl.addEventListener('touchstart', e => { joy.active = true; joyUpdate(e); e.preventDefault(); });
+joyEl.addEventListener('touchmove', e => { joyUpdate(e); e.preventDefault(); });
+joyEl.addEventListener('touchend', e => { joy.active = false; joy.dx = joy.dz = 0; knob.style.transform = 'translate(-50%,-50%)'; });
+
+// Look via drag on canvas (mobile)
+let lastTouch = null;
+canvas.addEventListener('touchstart', e => { lastTouch = e.touches[0]; }, { passive: true });
+canvas.addEventListener('touchmove', e => {
+  const t = e.touches[0];
+  if (lastTouch) {
+    player.yaw -= (t.clientX - lastTouch.clientX) * 0.005;
+    player.pitch -= (t.clientY - lastTouch.clientY) * 0.005;
+    player.pitch = Math.max(-1.2, Math.min(1.2, player.pitch));
+  }
+  lastTouch = t;
+}, { passive: true });
+
+// Raycast pick helper (mobile button + space)
+const raycaster = new THREE.Raycaster();
+function centerPick() {
+  raycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
+  const targets = collectibles.filter(o => o.visible).concat(specials);
+  const hits = raycaster.intersectObjects(targets, true);
+  for (const h of hits) {
+    let obj = h.object;
+    while (obj && !obj.userData.isCollectible && !obj.userData.isCoin) obj = obj.parent;
+    if (obj) return obj;
+  }
+  return null;
+}
+function tryPick() {
+  const target = centerPick();
+  if (!target) return;
+  if (target.userData.isCoin) { collectCoin(target); return; }
+  const d = camera.position.distanceTo(target.position);
+  if (d > 9) { toast('Dekati objek dahulu!', 'info'); speech.speak('Dekati objek dahulu.'); return; }
+  pickCollectible(target);
+}
+document.getElementById('btn-kutip').addEventListener('click', tryPick);
+
+// ---------------- PICK / QUIZ LOGIC ----------------
+function pickCollectible(obj) {
+  const o = obj.userData;
+  const mission = MISSIONS[state.missionIndex];
+  if (!mission) return;
+
+  const isTarget = mission.targets.includes(o.n);
+  // Keluarkan objek dari dunia
+  obj.visible = false;
+  o.isCollectible = false;
+
+  if (isTarget) {
+    if (!state.collectedThisMission.has(o.n)) {
+      state.collectedThisMission.add(o.n);
+      state.stars += 1;
+      state.score += 20;
+      if (o.special) { state.coins += 10; }
+      toast(`âœ… Betul! ${o.n.toUpperCase()} adalah kata nama! +20`, 'betul');
+      speech.speak(`Betul! ${o.n} adalah kata nama. Tahniah!`);
+    } else {
+      toast(`â„¹ï¸ ${o.n} â€” sudah dikutip`, 'info');
+    }
+  } else {
+    state.wrong += 1;
+    state.score = Math.max(0, state.score - 5);
+    toast(`âŒ ${o.n} bukan kata nama. Cuba lagi!`, 'salah');
+    speech.speak(`${o.n} bukan kata nama. Cuba lagi!`);
+  }
+  updateHUD();
+  checkMissionComplete();
+}
+
+function collectCoin(coin) {
+  coin.visible = false;
+  coin.userData.isCoin = false;
+  state.coins += 10;
+  state.score += 5;
+  toast('ðŸª™ +10 Syiling!', 'info');
+  speech.speak('Syiling!');
+  updateHUD();
+}
+
+function checkMissionComplete() {
+  const mission = MISSIONS[state.missionIndex];
+  if (!mission) return;
+  const done = mission.targets.every(t => state.collectedThisMission.has(t));
+  if (done) {
+    state.score += 10; // bonus misi
+    updateHUD();
+    if (state.missionIndex + 1 >= TOTAL_MISSIONS) {
+      endGame(true);
+    } else {
+      toast('ðŸŽ‰ Misi selesai! Misi baru...', 'info');
+      speech.speak('Misi selesai! Misi baru dimulakan.');
+      setTimeout(() => startMission(state.missionIndex + 1), 1800);
+    }
+  }
+}
+
+// ---------------- MISSIONS ----------------
+function startMission(i) {
+  state.missionIndex = i;
+  state.collectedThisMission.clear();
+  const m = MISSIONS[i];
+  const zone = ZONES.find(z => z.key === m.zone) || '';
+  document.getElementById('hud-mission').textContent = `ðŸŽ¯ ${m.soalan}`;
+  toast(`Misi ${i+1}/${TOTAL_MISSIONS}: ${m.soalan}`, 'info');
+  speech.speak(`Misi ${i+1}. ${m.soalan}`);
+  // Hidupkan semula objek target misi yang mungkin telah dikutip dalam misi lepas
+  collectibles.forEach(o => {
+    if (m.targets.includes(o.userData.n) && !o.visible) {
+      o.visible = true;
+      o.userData.isCollectible = true;
+    }
+  });
+}
+function updateHUD() {
+  document.getElementById('hud-stars').textContent = state.stars;
+  document.getElementById('hud-coins-num').textContent = state.coins;
+}
+function updateTimer() {
+  if (!state.running) return;
+  state.elapsed = Math.floor((Date.now() - state.startTime) / 1000);
+  const mm = String(Math.floor(state.elapsed/60)).padStart(2, '0');
+  const ss = String(state.elapsed % 60).padStart(2, '0');
+  document.getElementById('hud-timer').textContent = `â± ${mm}:${ss}`;
+}
+setInterval(updateTimer, 1000);
+
+// ---------------- TOAST ----------------
+let toastTimer = null;
+function toast(msg, cls) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = 'show ' + (cls || 'info');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { el.className = ''; }, 2600);
+}
+
+// ---------------- LEADERBOARD (localStorage) ----------------
+const LB_KEY = 'kembara-kata-nama-leaderboard';
+function loadBoard() {
+  try { return JSON.parse(localStorage.getItem(LB_KEY)) || []; }
+  catch { return []; }
+}
+function saveBoard() {
+  const board = loadBoard();
+  board.push({
+    playerName: state.playerName,
+    score: state.score,
+    stars: state.stars,
+    coins: state.coins,
+    completionTime: state.elapsed,
+    createdAt: new Date().toISOString(),
+  });
+  board.sort((a, b) => b.score - a.score || a.completionTime - b.completionTime);
+  localStorage.setItem(LB_KEY, JSON.stringify(board.slice(0, 10)));
+}
+function renderBoard(tableId) {
+  const board = loadBoard();
+  const table = document.getElementById(tableId);
+  table.innerHTML = '<tr><th colspan="3">ðŸ† Top 10</th></tr>' +
+    (board.length === 0
+      ? '<tr><td colspan="3">Tiada rekod lagi. Jadilah yang pertama!</td></tr>'
+      : board.map((r, i) =>
+        `<tr><td class="rank">${i+1}.</td><td>${r.playerName}</td><td>${r.score}</td></tr>`).join(''));
+}
+renderBoard('board-table');
+
+// ---------------- BADGES ----------------
+function computeBadges() {
+  const badges = [];
+  if (state.stars >= TOTAL_MISSIONS) badges.push('ðŸ… Penjelajah Hebat');
+  if (state.score >= WIN_SCORE * 0.9) badges.push('ðŸ† Juara Kata Nama');
+  if (state.collectedThisMission.has('rama-rama')) badges.push('ðŸ¦‹ Raja Haiwan');
+  return badges;
+}
+
+// ---------------- START / END ----------------
+function startGame() {
+  const nameInput = document.getElementById('player-name');
+  state.playerName = nameInput.value.trim() || 'Murid';
+  Object.assign(state, {
+    running: true, missionIndex: -1, stars: 0, coins: 0, score: 0, wrong: 0,
+    collectedThisMission: new Set(), startTime: Date.now(), elapsed: 0,
+  });
+  // Reset semua objek
+  collectibles.forEach(o => { o.visible = true; o.userData.isCollectible = true; });
+  specials.forEach(c => { c.visible = true; c.userData.isCoin = true; });
+  document.getElementById('screen-start').classList.add('hidden');
+  document.getElementById('screen-end').classList.add('hidden');
+  updateHUD();
+  speech.speak(`Selamat datang, ${state.playerName}. Jom jelajah sekolah dan cari kata nama!`);
+  setTimeout(() => startMission(0), 2200);
+}
+document.getElementById('btn-start').addEventListener('click', startGame);
+document.getElementById('player-name').addEventListener('keydown', e => {
+  if (e.key === 'Enter') startGame();
+});
+
+function endGame(completed) {
+  state.running = false;
+  if (document.pointerLockElement) document.exitPointerLock();
+  saveBoard();
+  const badges = computeBadges();
+  const mm = Math.floor(state.elapsed/60), ss = state.elapsed % 60;
+  document.getElementById('end-title').textContent = completed ? 'ðŸŽ‰ Tahniah!' : 'ðŸ• Masa Tamat!';
+  document.getElementById('end-summary').innerHTML =
+    `Nama: <b>${state.playerName}</b><br>` +
+    `Skor: <b>${state.score}</b> â€¢ â­ ${state.stars} â€¢ ðŸª™ ${state.coins}<br>` +
+    `Masa: ${mm}m ${ss}s â€¢ Jawapan salah: ${state.wrong}<br>` +
+    (badges.length ? badges.join('<br>') : '');
+  renderBoard('board-table-end');
+  document.getElementById('screen-end').classList.remove('hidden');
+  speech.speak('Tahniah! Permainan tamat. Skor anda ' + state.score);
+}
+document.getElementById('btn-again').addEventListener('click', () => {
+  document.getElementById('screen-end').classList.add('hidden');
+  document.getElementById('screen-start').classList.remove('hidden');
+});
+
+// ---------------- MOVEMENT / LOOP ----------------
+const clock = new THREE.Clock();
+function animate() {
+  requestAnimationFrame(animate);
+  const dt = Math.min(clock.getDelta(), 0.1);
+
+  if (state.running) {
+    // Keyboard
+    let fwd = 0, strafe = 0;
+    if (player.keys['KeyW'] || player.keys['ArrowUp']) fwd += 1;
+    if (player.keys['KeyS'] || player.keys['ArrowDown']) fwd -= 1;
+    if (player.keys['KeyA'] || player.keys['ArrowLeft']) strafe -= 1;
+    if (player.keys['KeyD'] || player.keys['ArrowRight']) strafe += 1;
+    // Joystick
+    if (joy.active) { fwd += -joy.dz; strafe += joy.dx; }
+
+    const len = Math.hypot(fwd, strafe);
+    if (len > 1) { fwd /= len; strafe /= len; }
+    const sin = Math.sin(player.yaw), cos = Math.cos(player.yaw);
+    player.pos.x += (-sin*fwd + cos*strafe) * player.speed * dt;
+    player.pos.z += (-cos*fwd - sin*strafe) * player.speed * dt;
+
+    // Kawasan berhad (dalam pagar)
+    player.pos.x = Math.max(-126, Math.min(126, player.pos.x));
+    player.pos.z = Math.max(-126, Math.min(126, player.pos.z));
+    // Elak masuk bangunan (kasar)
+    if (Math.abs(player.pos.x + 55) < 17 && player.pos.z < -5 && player.pos.z > -24) player.pos.z = -5;
+    if (Math.abs(player.pos.x - 58) < 12 && player.pos.z < -5 && player.pos.z > -22) player.pos.z = -5;
+
+    applyCamera();
+
+    // Bob animasi objek & syiling
+    const t = clock.elapsedTime;
+    collectibles.forEach(o => {
+      if (!o.visible) return;
+      o.children.forEach(ch => {
+        if (ch.isMesh && o.userData.isCollectible) {
+          // bob ringan pada objek khas sahaja
+        }
+      });
+      if (o.userData.special) o.position.y = Math.sin(t*2 + o.userData.bobPhase) * 0.15;
+    });
+    specials.forEach(c => {
+      if (!c.visible) return;
+      c.rotation.z += dt * 2;
+      c.position.y = 1 + Math.sin(t*3 + c.userData.bobPhase) * 0.2;
+    });
+
+    // Hover label: objek di tengah skrin
+    const target = centerPick();
+    const label = document.getElementById('pick-label');
+    if (target && target.userData.isCollectible) {
+      const v = target.position.clone().project(camera);
+      label.style.display = 'block';
+      label.style.left = ((v.x*0.5+0.5) * innerWidth - 60) + 'px';
+      label.style.top = ((-v.y*0.5+0.5) * innerHeight - 50) + 'px';
+      label.textContent = 'ðŸ‘‰ ' + target.userData.n;
+    } else {
+      label.style.display = 'none';
+    }
+  }
+
+  renderer.render(scene, camera);
+}
+animate();
+
+addEventListener('resize', () => {
+  camera.aspect = innerWidth/innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+});
+</script>
+</body>
+</html>
